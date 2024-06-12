@@ -1,0 +1,184 @@
+---
+title: "CarSalesTimeSeries"
+author: "Subham Moda"
+date: "2024-06-12"
+output: html_document
+---
+
+```{r}
+library(TSA)
+library(tseries)
+```
+
+I've taken the cars sales data, consisting of monthly sales data of cars throughout United States. The data is dated from Jan 1976 to Dec 2022. I will try to fit a time series model and lastly predict the sales of cars for the next year, i.e. 2023.
+
+```{r}
+ns_data <- read.csv('/Users/subhammoda/Documents/Projects/MA641_Project/TOTALSA.csv')
+ns_data$TOTALSA = as.numeric(ns_data$TOTALSA)
+ns_data$DATE = as.Date(ns_data$DATE)
+ns_data <- ts(ns_data$TOTALSA[0:564], frequency = 12, start = c(1976, 1))
+head(ns_data)
+```
+
+The plot below shows the actual data.
+
+```{r}
+plot.ts(ns_data, type = 'l', ylab = 'Total Sales (Millions of Units)', xlab = 'Year', main = "Car Sales Data")
+```
+
+```{r}
+acf(ns_data, lag.max = 100, main = "ACF plot of Car Sales Data")
+```
+
+```{r}
+pacf(ns_data, main = "PACF plot of Car Sales Data")
+```
+
+***Check for stationarity using Dicky-Fuller Test.***
+
+H0: The time series is non-stationary.
+
+H1: The time series is stationary.
+
+```{r}
+adf.test(ns_data)
+```
+
+***As the p-value is 0.3964 \> 0.05, we fail to reject H0, which means that the data is not stationary.***
+
+In order to make the data stationary we transform the data by taking first difference and check for stationarity.
+
+```{r}
+adf.test(diff(ns_data))
+```
+
+***As the p-value is 0.01 \< 0.05, we reject H0, the data is stationary.***
+
+```{r}
+plot(diff(ns_data), type = 'l', main = "Plot of first difference of Car Sales Data")
+```
+
+```{r}
+acf(diff(ns_data), lag.max = 100, main = "ACF plot of first difference of Car Sales Data")
+```
+
+```{r}
+pacf(diff(ns_data), lag.max = 100, main = "PACF plot of first difference of Car Sales Data")
+```
+
+```{r}
+eacf(diff(ns_data))
+```
+
+Based on the ACF, PACF and EACF, we test for the following 4 models:-
+
+1.  ARIMA(0,1,2)
+2.  ARIMA(1,1,2)
+3.  ARIMA(2,1,2)
+4.  ARIMA(2,1,3)
+
+#### *Model 1 - ARIMA(0,1,2)*
+
+```{r}
+model1 = arima(ns_data,order=c(0,1,2))
+model1
+```
+
+```{r}
+AIC(model1)
+```
+
+```{r}
+BIC(model1)
+```
+
+#### *Model 2 - ARIMA(1,1,2)*
+
+```{r}
+model2 = arima(ns_data,order=c(1,1,2))
+model2
+```
+
+```{r}
+AIC(model2)
+```
+
+```{r}
+BIC(model2)
+```
+
+#### *Model 3 - ARIMA(2,1,2)*
+
+```{r}
+model3 = arima(ns_data,order=c(2,1,2))
+model3
+```
+
+```{r}
+AIC(model3)
+```
+
+```{r}
+BIC(model3)
+```
+
+#### *Model 4 - ARIMA(2,1,3)*
+
+```{r}
+model4 = arima(ns_data,order=c(2,1,3))
+model4
+```
+
+```{r}
+AIC(model4)
+```
+
+```{r}
+BIC(model4)
+```
+
+#### *The best model for the above non-seasonal data is ARIMA(0,1,2) based on AIC and BIC values.*
+
+
+### Residual Analysis
+
+```{r}
+ns_model <- arima(ns_data,order=c(0,1,2))
+acf(residuals(ns_model), lag.max = 100, main = "ACF plot of residuals of ARIMA(0,1,2)")
+```
+
+```{r}
+qqnorm(residuals(ns_model), main = "Q-Q plot of residuals of ARIMA(0,1,2)"); qqline(residuals(ns_model))
+```
+
+```{r}
+hist(residuals(ns_model), freq = FALSE, main = "Histogram of residuals of ARIMA(0,1,2)")
+```
+
+```{r}
+shapiro.test(residuals(ns_model))
+```
+
+***From the Shapiro-Wilk test, the p-value of 2.2e-16 \< 0.05, shows that the residual is not normal.***
+
+```{r}
+Box.test(residuals(ns_model), lag = 10, type = "Ljung-Box")
+```
+
+***The Box-Ljung test, having p-value 0.9797 \> 0.05, shows that the residuals are independent and identically distributed.***
+
+***Diagnostic plot of ARIMA(0,1,2)***
+
+```{r}
+tsdiag(ns_model, gof.lag = 20)
+```
+
+### Forecast
+
+```{r}
+plot(ns_model, n1=c(2019,1), n.ahead=12,ylab='Sales',pch=20, main = "Pot of Car Sales data along with one year forecast")
+```
+
+### Conclusion
+
+We can see that ARIMA(0,1,2) is a great fit to the data, and is able to forecast the Car Sales for 2023. The forecast seems to be a straight line since the ARIMA model tends to predict the approximate mean values, and gives a large confidence interval for the predicted values. If we see the confidence interval lines, they seem to have upper and lower limits around the recent trends.
